@@ -43,6 +43,18 @@ def _dir_gen(sftp, cur):
         yield os.path.join(cur, child)
 
 
+def _getfile(sftp, cur, localcur, ofh):
+    """Try getting file and report whether successful"""
+    try:
+        sftp.get(cur, localcur)
+    except:
+        print('\tProblem downloading '+cur)
+        ofh.write(cur)
+        ofh.write('\n')
+        return False
+    return True
+
+
 def _download_directory(sftp, directory, outpath):
     """Downloads specified directory from sftp"""
     try:
@@ -51,15 +63,16 @@ def _download_directory(sftp, directory, outpath):
         raise OSError('"'+directory+'" was not found on the server')
     sftp.chdir(directory)
     queue = deque(sftp.listdir())
-    while queue:
-        cur = queue.popleft()
-        localcur = os.path.join(outpath, cur)
-        if stat.S_ISDIR(sftp.lstat(cur).st_mode):
-            queue.extend(_dir_gen(sftp, cur))
-            os.makedirs(localcur, exist_ok=True)
-        else:
-            print('Downloading: "'+cur+'"')
-            sftp.get(cur, localcur)
+    with open('badfiles.txt', 'w') as ofh:
+        while queue:
+            cur = queue.popleft()
+            localcur = os.path.join(outpath, cur)
+            if stat.S_ISDIR(sftp.lstat(cur).st_mode):
+                queue.extend(_dir_gen(sftp, cur))
+                os.makedirs(localcur, exist_ok=True)
+            else:
+                print('Downloading: "'+cur+'"')
+                _getfile(sftp, cur, localcur, ofh)
 
 
 def _run(args):
